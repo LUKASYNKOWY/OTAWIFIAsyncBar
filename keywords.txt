@@ -1,0 +1,4 @@
+OTAWIFIAsyncBar	KEYWORD1
+begin	KEYWORD2
+getProgress	KEYWORD2
+isActive	KEYWORD2
