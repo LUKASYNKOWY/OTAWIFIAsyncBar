@@ -838,7 +838,7 @@ See the `LICENSE` file for the complete license text.
 
 ## Author
 
-LUKASYNKOWY
+Zaju
 
 ## Repository
 
