@@ -1,83 +1,357 @@
 #ifndef OTAWIFIAsyncBarPage_h
 #define OTAWIFIAsyncBarPage_h
 
-const char* OTAWIFIAsyncBarPage=R"rawliteral(
+const char OTAWIFIAsyncBarPage[] PROGMEM = R"rawliteral(
+
 <!DOCTYPE html>
+
 <html>
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ESP32 OTA Update</title>
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>TestoBox OTA</title>
+
+
 <style>
-body{font-family:Arial;background:#f2f2f2;margin:0;padding:30px}
-.container{max-width:500px;margin:auto;background:white;padding:25px;border-radius:10px}
-h1{margin-top:0}
-input{width:100%;margin:15px 0}
-button{width:100%;padding:12px;background:#1976d2;color:white;border:0;border-radius:5px}
-button:disabled{background:#888}
-.progress{margin-top:20px;background:#ddd;height:25px}
-.bar{height:100%;width:0;background:#1976d2;color:white;text-align:center;line-height:25px}
-#status{text-align:center;margin-top:15px}
+
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 40px;
+}
+
+h1 {
+    font-size: 24px;
+}
+
+input {
+    margin: 20px;
+}
+
+button {
+    padding: 12px 25px;
+    font-size: 16px;
+}
+
+button:disabled {
+    opacity: 0.5;
+}
+
+#progress {
+    width: 90%;
+    max-width: 500px;
+    height: 25px;
+    border: 1px solid #000;
+    margin: 20px auto;
+}
+
+#bar {
+    width: 0%;
+    height: 100%;
+    background: #000;
+}
+
+#status {
+    margin-top: 20px;
+    font-size: 18px;
+}
+
 </style>
+
 </head>
+
+
 <body>
-<div class="container">
-<h1>ESP32 OTA Update</h1>
-<form id="form">
-<input type="file" name="update" accept=".bin" required>
-<button id="button" type="submit">Update firmware</button>
+
+<h1>TestoBox OTA</h1>
+
+
+<form id="uploadForm">
+
+<input
+    type="file"
+    id="firmware"
+    name="firmware"
+    accept=".bin"
+    required
+>
+
+<br>
+
+<button
+    type="submit"
+    id="uploadButton">
+
+    Update Firmware
+
+</button>
+
 </form>
-<div id="status">Ready</div>
-<div class="progress">
-<div id="bar" class="bar">0%</div>
+
+
+<div id="progress">
+
+<div id="bar"></div>
+
 </div>
+
+
+<div id="status">
+    Ready
 </div>
+
+
 <script>
-const form=document.getElementById("form");
-const button=document.getElementById("button");
-const bar=document.getElementById("bar");
-const status=document.getElementById("status");
 
-form.addEventListener("submit",function(e){
-e.preventDefault();
 
-const data=new FormData(form);
-const request=new XMLHttpRequest();
+// =====================================================
+// ELEMENTS
+// =====================================================
 
-button.disabled=true;
-status.innerHTML="Updating...";
+const form =
+    document.getElementById("uploadForm");
 
-request.open("POST","/update");
+const fileInput =
+    document.getElementById("firmware");
 
-request.upload.addEventListener("progress",function(e){
-if(e.lengthComputable){
-const percent=Math.round((e.loaded/e.total)*100);
-bar.style.width=percent+"%";
-bar.innerHTML=percent+"%";
+const uploadButton =
+    document.getElementById("uploadButton");
+
+const bar =
+    document.getElementById("bar");
+
+const statusText =
+    document.getElementById("status");
+
+
+// =====================================================
+// RESET PAGE
+// =====================================================
+
+function resetPage() {
+
+    // Wyczyszczenie wybranego pliku
+    fileInput.value = "";
+
+
+    // Wyzerowanie paska
+    bar.style.width = "0%";
+
+
+    // Przywrócenie przycisku
+    uploadButton.disabled = false;
+
+
+    // Stan pocz¹tkowy
+    statusText.innerText = "Ready";
 }
-});
 
-request.addEventListener("load",function(){
-if(request.status==200){
-bar.style.width="100%";
-bar.innerHTML="100%";
-status.innerHTML="Update complete. Restarting...";
-}else{
-status.innerHTML="Update failed.";
-button.disabled=false;
-}
-});
 
-request.addEventListener("error",function(){
-status.innerHTML="Connection error.";
-button.disabled=false;
-});
+// =====================================================
+// UPLOAD
+// =====================================================
 
-request.send(data);
-});
+form.addEventListener(
+    "submit",
+    function(event) {
+
+        event.preventDefault();
+
+
+        const file =
+            fileInput.files[0];
+
+
+        // ---------------------------------------------
+        // Brak pliku
+        // ---------------------------------------------
+
+        if (!file) {
+
+            statusText.innerText =
+                "Select firmware file.";
+
+            return;
+        }
+
+
+        // ---------------------------------------------
+        // Przygotowanie
+        // ---------------------------------------------
+
+        uploadButton.disabled = true;
+
+        statusText.innerText =
+            "Starting update...";
+
+        bar.style.width = "0%";
+
+
+        const formData =
+            new FormData();
+
+
+        formData.append(
+            "firmware",
+            file
+        );
+
+
+        const xhr =
+            new XMLHttpRequest();
+
+
+        xhr.open(
+            "POST",
+            "/update",
+            true
+        );
+
+
+        // =================================================
+        // UPLOAD PROGRESS
+        // =================================================
+
+        xhr.upload.addEventListener(
+            "progress",
+            function(event) {
+
+                if (event.lengthComputable) {
+
+                    const percent =
+                        Math.round(
+                            (event.loaded /
+                             event.total) * 100
+                        );
+
+
+                    bar.style.width =
+                        percent + "%";
+
+
+                    statusText.innerText =
+                        "Uploading: " +
+                        percent +
+                        "%";
+                }
+            }
+        );
+
+
+        // =================================================
+        // SUCCESS / ERROR RESPONSE
+        // =================================================
+
+        xhr.onload = function() {
+
+            // ---------------------------------------------
+            // SUCCESS
+            // ---------------------------------------------
+
+            if (
+                xhr.status === 200 &&
+                xhr.responseText === "OK"
+            ) {
+
+                bar.style.width = "100%";
+
+                statusText.innerText =
+                    "Update successful.";
+
+                return;
+            }
+
+
+            // ---------------------------------------------
+            // SERVER ERROR
+            // ---------------------------------------------
+
+            statusText.innerText =
+                "Update failed.";
+
+
+            // Krótka chwila z komunikatem
+            // i powrót do stanu pocz¹tkowego
+
+            setTimeout(
+                function() {
+
+                    resetPage();
+
+                },
+                2000
+            );
+        };
+
+
+        // =================================================
+        // CONNECTION ERROR
+        // =================================================
+
+        xhr.onerror = function() {
+
+            statusText.innerText =
+                "Connection lost.";
+
+
+            // Po utracie po³¹czenia nie próbujemy
+            // od razu resetowaæ strony.
+            //
+            // Dajemy 2 sekundy na pokazanie komunikatu.
+
+            setTimeout(
+                function() {
+
+                    resetPage();
+
+                },
+                2000
+            );
+        };
+
+
+        // =================================================
+        // ABORT
+        // =================================================
+
+        xhr.onabort = function() {
+
+            statusText.innerText =
+                "Upload aborted.";
+
+
+            setTimeout(
+                function() {
+
+                    resetPage();
+
+                },
+                2000
+            );
+        };
+
+
+        // =================================================
+        // SEND
+        // =================================================
+
+        xhr.send(formData);
+
+    }
+);
+
 </script>
+
+
 </body>
+
 </html>
+
 )rawliteral";
 
 #endif
