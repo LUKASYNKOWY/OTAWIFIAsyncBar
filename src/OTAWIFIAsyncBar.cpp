@@ -1,77 +1,35 @@
 #include "OTAWIFIAsyncBar.h"
 #include "OTAWIFIAsyncBarPage.h"
 
-
-// =====================================================
-// GLOBAL STATE
-// =====================================================
-
 volatile int OTAWIFIAsyncBar_progress = 0;
-
 volatile bool OTAWIFIAsyncBar_active = false;
-
 volatile bool OTAWIFIAsyncBar_error = false;
 
 volatile OTAError OTAWIFIAsyncBar_errorCode =
     OTAError::NONE;
 
-
-// =====================================================
-// TIMEOUT
-// =====================================================
-
-// 5 seconds without receiving data
-static const unsigned long OTA_TIMEOUT = 5000;
-
-volatile unsigned long OTAWIFIAsyncBar_lastDataTime = 0;
-
-
-// =====================================================
-// CONSTRUCTOR
-// =====================================================
-
-OTAWIFIAsyncBar::OTAWIFIAsyncBar() {
-
+OTAWIFIAsyncBar::OTAWIFIAsyncBar()
+{
     _server = nullptr;
 }
 
-
-// =====================================================
-// BEGIN
-// =====================================================
-
 void OTAWIFIAsyncBar::begin(
     AsyncWebServer *server
-) {
-
+)
+{
     _server = server;
 
-
-    // =============================================
-    // RESET STATE
-    // =============================================
-
     OTAWIFIAsyncBar_progress = 0;
-
     OTAWIFIAsyncBar_active = false;
-
     OTAWIFIAsyncBar_error = false;
-
     OTAWIFIAsyncBar_errorCode =
         OTAError::NONE;
-
-    OTAWIFIAsyncBar_lastDataTime = 0;
-
-
-    // =============================================
-    // OTA PAGE
-    // =============================================
 
     _server->on(
         "/update",
         HTTP_GET,
-        [](AsyncWebServerRequest *request) {
-
+        [](AsyncWebServerRequest *request)
+        {
             request->send(
                 200,
                 "text/html",
@@ -80,27 +38,14 @@ void OTAWIFIAsyncBar::begin(
         }
     );
 
-
-    // =============================================
-    // OTA UPLOAD
-    // =============================================
-
     _server->on(
         "/update",
         HTTP_POST,
 
-        // =========================================
-        // POST COMPLETE
-        // =========================================
-
-        [](AsyncWebServerRequest *request) {
-
-            // -------------------------------------
-            // Error already detected
-            // -------------------------------------
-
-            if (OTAWIFIAsyncBar_error) {
-
+        [](AsyncWebServerRequest *request)
+        {
+            if (OTAWIFIAsyncBar_error)
+            {
                 request->send(
                     200,
                     "text/plain",
@@ -110,30 +55,25 @@ void OTAWIFIAsyncBar::begin(
                 return;
             }
 
-
-            // -------------------------------------
-            // Check Update
-            // -------------------------------------
-
-            bool error = Update.hasError();
-
-
-            if (error) {
-
+            if (Update.hasError())
+            {
                 OTAWIFIAsyncBar_error = true;
-
                 OTAWIFIAsyncBar_active = false;
-
 
                 if (
                     OTAWIFIAsyncBar_errorCode ==
                     OTAError::NONE
-                ) {
-
+                )
+                {
                     OTAWIFIAsyncBar_errorCode =
                         OTAError::UNKNOWN;
                 }
 
+                request->send(
+                    200,
+                    "text/plain",
+                    "FAIL"
+                );
 
                 Serial.println();
                 Serial.println(
@@ -148,83 +88,90 @@ void OTAWIFIAsyncBar::begin(
                     (int)OTAWIFIAsyncBar_errorCode
                 );
 
+                return;
             }
 
-            else {
+            OTAWIFIAsyncBar_progress = 100;
+            OTAWIFIAsyncBar_active = false;
+            OTAWIFIAsyncBar_error = false;
+            OTAWIFIAsyncBar_errorCode =
+                OTAError::NONE;
 
-                OTAWIFIAsyncBar_error = false;
+            AsyncWebServerResponse *response =
+                request->beginResponse(
+                    200,
+                    "text/plain",
+                    "OK"
+                );
 
-                OTAWIFIAsyncBar_active = false;
-
-                OTAWIFIAsyncBar_errorCode =
-                    OTAError::NONE;
-            }
-
-
-            // =====================================
-            // HTTP RESPONSE
-            // =====================================
-
-            request->send(
-                200,
-                "text/plain",
-                error ? "FAIL" : "OK"
+            response->addHeader(
+                "Connection",
+                "close"
             );
 
+            request->send(response);
 
-            // =====================================
-            // SUCCESS
-            // =====================================
+            Serial.println();
+            Serial.println(
+                "========== OTA SUCCESS =========="
+            );
 
-            if (!error) {
+            Serial.println(
+                "Firmware accepted."
+            );
 
-                Serial.println();
-                Serial.println(
-                    "========== OTA SUCCESS =========="
-                );
+            delay(500);
 
-                Serial.println(
-                    "Restart ESP32..."
-                );
-
-                delay(500);
-
-                ESP.restart();
-            }
+            ESP.restart();
         },
-
-
-        // =========================================
-        // UPLOAD CALLBACK
-        // =========================================
 
         [](AsyncWebServerRequest *request,
            String filename,
            size_t index,
            uint8_t *data,
            size_t len,
-           bool final) {
-
-
-            // =====================================
-            // START OF FILE
-            // =====================================
-
-            if (index == 0) {
-
+           bool final)
+        {
+            if (index == 0)
+            {
                 OTAWIFIAsyncBar_progress = 0;
-
                 OTAWIFIAsyncBar_active = true;
-
                 OTAWIFIAsyncBar_error = false;
-
                 OTAWIFIAsyncBar_errorCode =
                     OTAError::NONE;
 
+                request->onDisconnect(
+                    [](void)
+                    {
+                        if (
+                            OTAWIFIAsyncBar_active
+                        )
+                        {
+                            OTAWIFIAsyncBar_error =
+                                true;
 
-                OTAWIFIAsyncBar_lastDataTime =
-                    millis();
+                            OTAWIFIAsyncBar_active =
+                                false;
 
+                            OTAWIFIAsyncBar_errorCode =
+                                OTAError::DISCONNECTED;
+
+                            OTAWIFIAsyncBar_progress =
+                                0;
+
+                            Update.abort();
+
+                            Serial.println();
+                            Serial.println(
+                                "========== OTA DISCONNECTED =========="
+                            );
+
+                            Serial.println(
+                                "OTA upload interrupted."
+                            );
+                        }
+                    }
+                );
 
                 Serial.println();
                 Serial.println(
@@ -235,7 +182,9 @@ void OTAWIFIAsyncBar::begin(
                     "File: "
                 );
 
-                Serial.println(filename);
+                Serial.println(
+                    filename
+                );
 
                 Serial.print(
                     "HTTP size: "
@@ -245,63 +194,146 @@ void OTAWIFIAsyncBar::begin(
                     request->contentLength()
                 );
 
-
-                // =================================
-                // CHECK FILE EXTENSION
-                // =================================
-
                 String lowerFilename =
                     filename;
 
                 lowerFilename.toLowerCase();
 
-
                 if (
                     !lowerFilename.endsWith(
                         ".bin"
                     )
-                ) {
-
+                )
+                {
                     OTAWIFIAsyncBar_error =
                         true;
-
-                    OTAWIFIAsyncBar_errorCode =
-                        OTAError::INVALID_FILE;
 
                     OTAWIFIAsyncBar_active =
                         false;
 
-
-                    Serial.println();
-                    Serial.println(
-                        "========== INVALID FILE =========="
-                    );
-
-                    Serial.print(
-                        "Rejected file: "
-                    );
-
-                    Serial.println(filename);
+                    OTAWIFIAsyncBar_errorCode =
+                        OTAError::INVALID_FILE;
 
                     Serial.println(
-                        "Only .bin files are allowed."
+                        "OTA ERROR: Invalid file"
                     );
-
 
                     return;
                 }
 
+                size_t totalSize =
+                    request->contentLength();
 
-                // =================================
-                // START UPDATE
-                // =================================
+                if (
+                    totalSize < 24
+                )
+                {
+                    OTAWIFIAsyncBar_error =
+                        true;
+
+                    OTAWIFIAsyncBar_active =
+                        false;
+
+                    OTAWIFIAsyncBar_errorCode =
+                        OTAError::INVALID_FIRMWARE;
+
+                    Serial.println(
+                        "OTA ERROR: File too small"
+                    );
+
+                    return;
+                }
+
+                if (
+                    len < 2
+                )
+                {
+                    OTAWIFIAsyncBar_error =
+                        true;
+
+                    OTAWIFIAsyncBar_active =
+                        false;
+
+                    OTAWIFIAsyncBar_errorCode =
+                        OTAError::INVALID_FIRMWARE;
+
+                    Serial.println(
+                        "OTA ERROR: Invalid firmware header"
+                    );
+
+                    return;
+                }
+
+                uint8_t magic =
+                    data[0];
+
+                uint8_t segmentCount =
+                    data[1];
+
+                if (
+                    magic != 0xE9
+                )
+                {
+                    OTAWIFIAsyncBar_error =
+                        true;
+
+                    OTAWIFIAsyncBar_active =
+                        false;
+
+                    OTAWIFIAsyncBar_errorCode =
+                        OTAError::INVALID_FIRMWARE;
+
+                    Serial.println(
+                        "OTA ERROR: Not an ESP32 firmware"
+                    );
+
+                    Serial.print(
+                        "Magic: 0x"
+                    );
+
+                    Serial.println(
+                        magic,
+                        HEX
+                    );
+
+                    return;
+                }
+
+                if (
+                    segmentCount == 0 ||
+                    segmentCount > 16
+                )
+                {
+                    OTAWIFIAsyncBar_error =
+                        true;
+
+                    OTAWIFIAsyncBar_active =
+                        false;
+
+                    OTAWIFIAsyncBar_errorCode =
+                        OTAError::INVALID_FIRMWARE;
+
+                    Serial.println(
+                        "OTA ERROR: Invalid segment count"
+                    );
+
+                    Serial.print(
+                        "Segments: "
+                    );
+
+                    Serial.println(
+                        segmentCount
+                    );
+
+                    return;
+                }
 
                 if (
                     !Update.begin(
                         UPDATE_SIZE_UNKNOWN
                     )
-                ) {
-
+                )
+                {
                     Update.printError(
                         Serial
                     );
@@ -309,12 +341,11 @@ void OTAWIFIAsyncBar::begin(
                     OTAWIFIAsyncBar_error =
                         true;
 
-                    OTAWIFIAsyncBar_errorCode =
-                        OTAError::BEGIN_FAILED;
-
                     OTAWIFIAsyncBar_active =
                         false;
 
+                    OTAWIFIAsyncBar_errorCode =
+                        OTAError::BEGIN_FAILED;
 
                     Serial.println(
                         "OTA ERROR: Update.begin()"
@@ -322,32 +353,39 @@ void OTAWIFIAsyncBar::begin(
 
                     return;
                 }
+
+                Serial.println(
+                    "Firmware header OK"
+                );
+
+                Serial.print(
+                    "Segments: "
+                );
+
+                Serial.println(
+                    segmentCount
+                );
+
+                Serial.println(
+                    "Update.begin() OK"
+                );
             }
 
-
-            // =====================================
-            // DATA RECEIVED
-            // =====================================
-
-            if (len > 0) {
-
-                OTAWIFIAsyncBar_lastDataTime =
-                    millis();
-
-
-                // =================================
-                // WRITE DATA
-                // =================================
-
+            if (
+                len > 0 &&
+                !OTAWIFIAsyncBar_error
+            )
+            {
                 size_t written =
                     Update.write(
                         data,
                         len
                     );
 
-
-                if (written != len) {
-
+                if (
+                    written != len
+                )
+                {
                     Update.printError(
                         Serial
                     );
@@ -355,12 +393,13 @@ void OTAWIFIAsyncBar::begin(
                     OTAWIFIAsyncBar_error =
                         true;
 
-                    OTAWIFIAsyncBar_errorCode =
-                        OTAError::WRITE_FAILED;
-
                     OTAWIFIAsyncBar_active =
                         false;
 
+                    OTAWIFIAsyncBar_errorCode =
+                        OTAError::WRITE_FAILED;
+
+                    Update.abort();
 
                     Serial.println(
                         "OTA ERROR: Update.write()"
@@ -369,32 +408,29 @@ void OTAWIFIAsyncBar::begin(
                     return;
                 }
 
-
-                // =================================
-                // PROGRESS
-                // =================================
-
                 size_t uploaded =
                     index + len;
 
                 size_t total =
                     request->contentLength();
 
-
-                if (total > 0) {
-
-                    OTAWIFIAsyncBar_progress =
-                        (uploaded * 100) / total;
-
+                if (
+                    total > 0
+                )
+                {
+                    int progress =
+                        (uploaded * 100) /
+                        total;
 
                     if (
-                        OTAWIFIAsyncBar_progress > 100
-                    ) {
-
-                        OTAWIFIAsyncBar_progress =
-                            100;
+                        progress > 100
+                    )
+                    {
+                        progress = 100;
                     }
 
+                    OTAWIFIAsyncBar_progress =
+                        progress;
 
                     Serial.print(
                         "OTA PROGRESS: "
@@ -404,38 +440,32 @@ void OTAWIFIAsyncBar::begin(
                         OTAWIFIAsyncBar_progress
                     );
 
-                    Serial.print("% | ");
+                    Serial.print(
+                        "% | "
+                    );
 
-                    Serial.print(uploaded);
+                    Serial.print(
+                        uploaded
+                    );
 
-                    Serial.print("/");
+                    Serial.print(
+                        "/"
+                    );
 
-                    Serial.println(total);
+                    Serial.println(
+                        total
+                    );
                 }
             }
 
-
-            // =====================================
-            // END OF FILE
-            // =====================================
-
-            if (final) {
-
-                // ---------------------------------
-                // Error already detected
-                // ---------------------------------
-
+            if (final)
+            {
                 if (
                     OTAWIFIAsyncBar_error
-                ) {
-
+                )
+                {
                     return;
                 }
-
-
-                OTAWIFIAsyncBar_progress =
-                    100;
-
 
                 Serial.println();
                 Serial.println(
@@ -450,14 +480,16 @@ void OTAWIFIAsyncBar::begin(
                     index + len
                 );
 
-
-                // =================================
-                // FINALIZE UPDATE
-                // =================================
-
                 if (
                     Update.end(true)
-                ) {
+                )
+                {
+                    OTAWIFIAsyncBar_progress =
+                        100;
+
+                    Serial.println(
+                        "Update.end() OK"
+                    );
 
                     Serial.print(
                         "Update Success: "
@@ -466,11 +498,9 @@ void OTAWIFIAsyncBar::begin(
                     Serial.println(
                         index + len
                     );
-
                 }
-
-                else {
-
+                else
+                {
                     Update.printError(
                         Serial
                     );
@@ -478,12 +508,11 @@ void OTAWIFIAsyncBar::begin(
                     OTAWIFIAsyncBar_error =
                         true;
 
-                    OTAWIFIAsyncBar_errorCode =
-                        OTAError::END_FAILED;
-
                     OTAWIFIAsyncBar_active =
                         false;
 
+                    OTAWIFIAsyncBar_errorCode =
+                        OTAError::END_FAILED;
 
                     Serial.println(
                         "OTA ERROR: Update.end()"
@@ -494,110 +523,36 @@ void OTAWIFIAsyncBar::begin(
     );
 }
 
-
-// =====================================================
-// LOOP
-// =====================================================
-
-void OTAWIFIAsyncBar::loop() {
-
-    if (
-        !OTAWIFIAsyncBar_active
-    ) {
-
-        return;
-    }
-
-
-    // =============================================
-    // TIMEOUT
-    // =============================================
-
-    if (
-        millis() -
-        OTAWIFIAsyncBar_lastDataTime
-        >= OTA_TIMEOUT
-    ) {
-
-        OTAWIFIAsyncBar_error =
-            true;
-
-        OTAWIFIAsyncBar_errorCode =
-            OTAError::TIMEOUT;
-
-        OTAWIFIAsyncBar_active =
-            false;
-
-
-        Serial.println();
-        Serial.println(
-            "========== OTA TIMEOUT =========="
-        );
-
-        Serial.println(
-            "No data received for 5 seconds."
-        );
-
-
-        // =========================================
-        // ABORT
-        // =========================================
-
-        Update.abort();
-    }
+void OTAWIFIAsyncBar::loop()
+{
 }
 
-
-// =====================================================
-// GET PROGRESS
-// =====================================================
-
-int OTAWIFIAsyncBar::getProgress() {
-
+int OTAWIFIAsyncBar::getProgress()
+{
     return OTAWIFIAsyncBar_progress;
 }
 
-
-// =====================================================
-// IS ACTIVE
-// =====================================================
-
-bool OTAWIFIAsyncBar::isActive() {
-
+bool OTAWIFIAsyncBar::isActive()
+{
     return OTAWIFIAsyncBar_active;
 }
 
-
-// =====================================================
-// HAS ERROR
-// =====================================================
-
-bool OTAWIFIAsyncBar::hasError() {
-
+bool OTAWIFIAsyncBar::hasError()
+{
     return OTAWIFIAsyncBar_error;
 }
 
-
-// =====================================================
-// GET ERROR
-// =====================================================
-
-OTAError OTAWIFIAsyncBar::getError() {
-
+OTAError OTAWIFIAsyncBar::getError()
+{
     return OTAWIFIAsyncBar_errorCode;
 }
 
-
-// =====================================================
-// GET ERROR STRING
-// =====================================================
-
-String OTAWIFIAsyncBar::getErrorString() {
-
+String OTAWIFIAsyncBar::getErrorString()
+{
     switch (
         OTAWIFIAsyncBar_errorCode
-    ) {
-
+    )
+    {
         case OTAError::NONE:
             return "No error";
 
@@ -610,11 +565,14 @@ String OTAWIFIAsyncBar::getErrorString() {
         case OTAError::END_FAILED:
             return "Finish failed";
 
-        case OTAError::TIMEOUT:
-            return "Timeout";
+        case OTAError::DISCONNECTED:
+            return "Connection lost";
 
         case OTAError::INVALID_FILE:
             return "Invalid file";
+
+        case OTAError::INVALID_FIRMWARE:
+            return "Invalid firmware";
 
         case OTAError::UNKNOWN:
             return "Unknown error";
@@ -624,19 +582,14 @@ String OTAWIFIAsyncBar::getErrorString() {
     }
 }
 
+void OTAWIFIAsyncBar::clearError()
+{
+    OTAWIFIAsyncBar_progress = 0;
 
-// =====================================================
-// CLEAR ERROR
-// =====================================================
+    OTAWIFIAsyncBar_active = false;
 
-void OTAWIFIAsyncBar::clearError() {
-
-    OTAWIFIAsyncBar_error =
-        false;
+    OTAWIFIAsyncBar_error = false;
 
     OTAWIFIAsyncBar_errorCode =
         OTAError::NONE;
-
-    OTAWIFIAsyncBar_progress =
-        0;
 }
