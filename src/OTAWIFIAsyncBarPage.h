@@ -143,11 +143,11 @@ function resetPage() {
     bar.style.width = "0%";
 
 
-    // Przywrócenie przycisku
+    // PrzywrÃ³cenie przycisku
     uploadButton.disabled = false;
 
 
-    // Stan pocz¹tkowy
+    // Stan poczÂ¹tkowy
     statusText.innerText = "Ready";
 }
 
@@ -275,8 +275,8 @@ form.addEventListener(
                 "Update failed.";
 
 
-            // Krótka chwila z komunikatem
-            // i powrót do stanu pocz¹tkowego
+            // KrÃ³tka chwila z komunikatem
+            // i powrÃ³t do stanu poczÂ¹tkowego
 
             setTimeout(
                 function() {
@@ -297,12 +297,6 @@ form.addEventListener(
 
             statusText.innerText =
                 "Connection lost.";
-
-
-            // Po utracie po³¹czenia nie próbujemy
-            // od razu resetowaæ strony.
-            //
-            // Dajemy 2 sekundy na pokazanie komunikatu.
 
             setTimeout(
                 function() {
