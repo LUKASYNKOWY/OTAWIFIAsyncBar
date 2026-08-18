@@ -1,6 +1,6 @@
 # OTAWIFIAsyncBar
 
-**Version: 1.1.1**
+**Version: 1.2.0**
 
 Asynchronous WiFi OTA firmware update library for ESP32.
 
@@ -821,13 +821,13 @@ The OLED is optional. The OTA functionality works without it.
 Current version:
 
 ```text
-1.1.1
+1.2.0
 ```
 
 Release tag:
 
 ```text
-v1.1.1
+v1.2.0
 ```
 
 ## License
